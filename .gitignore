@@ -29,3 +29,10 @@ data_cache/
 .Trashes
 ehthumbs.db
 Thumbs.db
+.gitignore
+.gsd
+.env
+.agent
+.agents
+.gemini
+plan.md

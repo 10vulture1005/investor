@@ -7,3 +7,5 @@ scipy
 pyarrow
 fastparquet
 python-dotenv
+dhanhq
+rich

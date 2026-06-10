@@ -2,7 +2,12 @@ import logging
 import os
 from dotenv import load_dotenv
 from data_fetcher import DataFetcher
-from filters import calculate_vix_filter, calculate_sector_rs_filter, calculate_fii_proxy_filter, identify_order_block
+from filters import (
+    calculate_vix_filter, 
+    calculate_sector_rs_filter, 
+    calculate_market_regime_filter, 
+    calculate_technical_indicators
+)
 from strategy import generate_signals
 from backtest_engine import BacktestEngine
 from report import calculate_metrics, generate_report
@@ -22,7 +27,7 @@ def main():
     end_date = os.getenv('END_DATE', '2024-12-31')
     initial_capital = float(os.getenv('INITIAL_CAPITAL', '1000000.0'))
     max_positions = int(os.getenv('MAX_POSITIONS', '5'))
-    risk_pct = float(os.getenv('RISK_PCT', '0.015'))
+    risk_pct = float(os.getenv('RISK_PCT', '0.03'))
     risk_free_rate = float(os.getenv('RISK_FREE_RATE', '0.065'))
     
     # 1. Fetch Data
@@ -35,32 +40,25 @@ def main():
         return
         
     vix_df = data_dict.get('VIX')
-    nifty_df = data_dict.get('^NSEI')
+    nifty_df = data_dict.get('Nifty50')
     niftybees_df = data_dict.get('NIFTYBEES')
     
     logger.info("Applying Market-wide Filters...")
     # 2. Market-wide Filters
     vix_df['VIX_Multiplier'] = calculate_vix_filter(vix_df)
-    niftybees_df['FII_Allowed'] = calculate_fii_proxy_filter(niftybees_df)
+    regime_df = calculate_market_regime_filter(nifty_df)
+    nifty_df['Regime_Allowed'] = regime_df['Regime_Allowed']
+    nifty_df['Macro_Crash'] = regime_df['Macro_Crash']
     
-    # 3. Sector RS
-    sector_tickers = ['^NSEBANK', '^CNXIT', '^CNXPHARMA', '^CNXAUTO', '^CNXFMCG']
-    for sec in sector_tickers:
-        if sec in data_dict:
-            data_dict[sec]['Sector_RS'] = calculate_sector_rs_filter(data_dict[sec], nifty_df)
-            
-    # 4. Stock-specific Filters & Signals
+    # 3. Stock-specific Filters & Signals
     logger.info("Generating signals for individual stocks...")
     for ticker, df in data_dict.items():
         if ticker.endswith('.NS') and ticker != 'NIFTYBEES.NS':
-            # Create weekly data
-            df_weekly = fetcher.get_weekly_data(df)
+            # 1. Add Technical Indicators (ATR, RSI, BB, EMA)
+            df_tech = calculate_technical_indicators(df)
             
-            # Identify Order Block (SMC Filter)
-            df_smc = identify_order_block(df, df_weekly)
-            
-            # Generate Signals (Candlestick patterns within OB)
-            df_signals = generate_signals(df_smc)
+            # 2. Generate candlestick + indicator signals
+            df_signals = generate_signals(df_tech)
             
             data_dict[ticker] = df_signals
             
