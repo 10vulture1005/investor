@@ -1,152 +1,69 @@
-# Investor - NSE Swing Trading Backtest Engine
+# Smart Alpha 3.0: Nifty 50 Mean Reversion Engine
 
-A fully automated, end-to-end quantitative backtesting engine designed specifically for the Indian stock market (NSE). This engine evaluates a sophisticated swing trading strategy combining Smart Money Concepts (SMC), institutional flow proxies, volatility regimes, and sector relative strength.
+Smart Alpha 3.0 is a highly concentrated, event-driven quantitative swing trading engine built for the Nifty 50 universe. It is designed to capture rapid mean-reversion bounces in high-momentum stocks, achieving a massive **~25% CAGR** without utilizing margin leverage.
 
-Built from scratch in pure Python and Pandas to ensure a zero-lookahead bias, day-by-day event loop that accurately mirrors live portfolio behavior.
+## 📊 Performance Summary (Jan 2017 - Dec 2025)
 
-## Strategy Overview
+| Metric | Result |
+| :--- | :--- |
+| **Final Equity** | ₹73,811,518.68 (Starting: ₹10M) |
+| **Total Return** | 638.12% |
+| **CAGR** | **24.90%** |
+| **Max Drawdown** | -31.80% |
+| **Win Rate** | **67.15%** |
+| **Avg Win / Loss** | 0.66 |
+| **Total Trades** | 481 |
+| **Avg Hold Days** | 2.66 Days |
 
-The strategy strictly applies the following filters before considering any long entries:
-1. **VIX Regime Filter**: Adjusts position sizing based on `^INDIAVIX`. Halves size if VIX > 20; prohibits new entries if VIX > 25.
-2. **Sector Relative Strength**: Compares 10-day returns of the stock's sector index against the Nifty 50 (`^NSEI`). Longs are only permitted if the sector is outperforming.
-3. **FII Institutional Flow Proxy**: Uses a 5-day rolling net flow approximation on `NIFTYBEES.NS`. Long entries are blocked if the market is experiencing sustained net selling.
-4. **SMC Structure**: Ensures the stock is above the 50-week EMA. Identifies the most recent daily "Order Block" (bearish candle preceding a breakout) and requires the current price to retest this zone.
-
-**Trigger & Execution:**
-- Looks for Bullish Engulfing or Pin Bar candlestick patterns within the established Order Block.
-- Max 5 concurrent positions.
-- Dynamic position sizing based on a fixed 1.5% risk of *current* fluctuating portfolio equity.
-- Take Profit scaling (50% at 1.5R, 50% at 2.5R) and a 20-day time stop.
-
----
-
-## Optimized Backtest Results (2017-2025)
-
-The strategy was heavily tested and optimized across an 8-year dataset, successfully navigating the 2020 Covid-19 Black Swan crash and the choppy 2022-2024 regimes using dynamic `EMA-200` macro-crash trailing stops and flexible multi-day pullback logic.
-
-```
-Total Return (%)         : 340.93%
-CAGR (%)                 : 17.94%
-Sharpe Ratio             : 0.59
-Sortino Ratio            : 0.82
-Max Drawdown (%)         : -22.53%
-Win Rate (%)             : 38.71%
-Avg Win / Avg Loss       : 2.98
-Profit Factor            : 1.88
-Total Trades             : 186
-Avg Hold Days            : 9
-Best Trade (INR)         : ₹540,249.63
-Worst Trade (INR)        : ₹-109,293.95
-```
-
-### Bull Market Performance (2022-2024)
-
-During purely bullish or sideways regimes, the strategy exhibits massive outperformance with a highly asymmetrical Profit Factor:
-
-```
-Total Return (%)         : 175.81%
-CAGR (%)                 : 40.40%
-Sharpe Ratio             : 1.88
-Sortino Ratio            : 2.70
-Max Drawdown (%)         : -11.55%
-Win Rate (%)             : 46.00%
-Avg Win / Avg Loss       : 8.70
-Profit Factor            : 7.41
-Total Trades             : 50
-Avg Hold Days            : 9
-Best Trade (INR)         : ₹316,533.93
-Worst Trade (INR)        : ₹-82,103.80
-```
-
----
-## Installation
-
-**1. Clone the repository:**
-```bash
-git clone https://github.com/10vulture1005/investor.git
-cd investor
-```
-
-**2. Set up the virtual environment:**
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-**3. Install dependencies:**
-```bash
-pip install -r requirements.txt
-```
+### 🔮 Monte Carlo Forward Projection (Till 2030)
+Based on 1,000 resampled paths over the remaining 1,260 trading days of the decade:
+* **Projected Median Equity**: ₹22.88 Crore (₹228M)
+* **Projected 95th Percentile**: ₹59.44 Crore (Optimistic)
+* **Projected 5th Percentile**: ₹9.05 Crore (Pessimistic)
+* **Projected Max Drawdown**: -29.23%
 
 ---
 
-## Configuration
+## 🧠 Strategy Architecture
 
-The engine is highly configurable via environment variables.
+### 1. The Universe & Regime Filters
+* **Universe**: Nifty 50 constituents (large-cap, highly liquid).
+* **Macro Crash Filter**: The engine halts all buying if the broader market breadth is terrible (`< 30%` of Nifty 50 stocks above their 50-day SMA) OR if the Nifty 50 index is trading below its 100-day SMA.
 
-**1. Create a `.env` file:**
-```bash
-cp .env.example .env
-```
+### 2. Signal Generation (Cross-Sectional Momentum + Mean Reversion)
+Rather than trading every pullback, the system ranks the entire universe daily:
+* **Ranking Factor**: "Smooth Momentum" -> `ROC(90-day) / ATR(20-day)`.
+* **Entry Trigger**: The engine isolates the absolute #1 ranked momentum stock, and buys it at the Open if it experiences a deep oversold pullback (`RSI(3) ≤ 30` or price drops below the Lower Keltner Channel).
 
-**2. Customize parameters in `.env`:**
-```env
-# Time horizon
-START_DATE=2020-01-01
-END_DATE=2024-12-31
+### 3. Hyper-Concentrated Risk Management
+* **Max Positions**: 1 (The engine only holds the single highest-conviction stock).
+* **Average Margin Taken**: **~100% of Equity (1x Leverage)**. 
+* **Leverage Rules**: The strategy operates with a strict `target_volatility` of 8%, meaning the math attempts to allocate large sizes. However, it is strictly capped by a cash constraint. It utilizes **no borrowed margin**, deploying 100% of available cash into the single best setup.
+* **Stop Loss**: Initial hard stop at `Entry - 2.0 * ATR(14)`.
 
-# Portfolio rules
-INITIAL_CAPITAL=1000000.0
-MAX_POSITIONS=5
-RISK_PCT=0.015
-```
+### 4. High-Velocity Exits
+Because mean reversion bounces are fast but short-lived, the strategy turns over capital rapidly (avg hold time: 2.6 days).
+* **Primary Target**: Sells immediately at the Close if `RSI(3) > 80` or if the price crosses back above the 10-day SMA.
+* **Time Stop**: Sells automatically after 10 days if the trade flatlines, freeing up capital for the next opportunity.
 
 ---
 
-## Running the Backtest
+## 🚀 Running the Engine
 
-To execute the engine across the Nifty 50 constituents, run:
+### Installation
+Ensure you have `pandas`, `numpy`, and `matplotlib` installed:
+```bash
+pip install pandas numpy matplotlib
+```
+
+### Execution
+Run the backtest engine. It will automatically fetch data, run the historical backtest, execute the Monte Carlo simulations (both historical and forward-projected), and save the equity curves.
 ```bash
 python main.py
 ```
 
-### Outputs & Reporting
-The script will automatically download the historical OHLCV data from Yahoo Finance (`yfinance`) and cache it locally in `/data_cache/` using the `.parquet` format for lightning-fast subsequent runs.
-
-Upon completion, results are exported to the `/backtest_results/` directory:
-- **`trades.csv`**: A granular ledger of every executed trade, including entry/exit prices, reasons, hold days, and PnL.
-- **`equity_curve.png`**: Visualizes the growth of the portfolio equity over time.
-- **`drawdown.png`**: Maps the peak-to-trough declines.
-- **`monthly_heatmap.png`**: A calendar view of month-by-month returns.
-- **`win_loss_dist.png` & `trade_scatter.png`**: Visualizes the distribution and chronologic progression of trade outcomes.
-
----
-
-## Technical Architecture
-
-The engine is highly modular. Each file is responsible for a very specific part of the quantitative pipeline:
-
-### 1. `main.py` (The Orchestrator)
-The manager that coordinates the entire process. It loads the `.env` configuration, triggers data fetching, applies filters, runs the backtest engine, and finally requests the report generation.
-
-### 2. `data_fetcher.py` (The Data Layer)
-Communicates with the Yahoo Finance API (`yfinance`). To prevent rate-limiting, it implements a highly efficient caching system that saves downloaded data as compressed `.parquet` files in `/data_cache/`. It also handles resampling daily data into weekly data.
-
-### 3. `filters.py` (The Constraint Logic)
-Takes raw data and calculates boolean flags for our strategy rules:
-- **`calculate_vix_filter`**: Analyzes the VIX regime to restrict or adjust sizing.
-- **`calculate_sector_rs_filter`**: Compares sector returns against the broader Nifty 50.
-- **`calculate_fii_proxy_filter`**: Calculates a 5-day rolling net flow proxy using NIFTYBEES ETF.
-- **`identify_order_block`**: Calculates the 50-week EMA, scans the daily chart for bearish candles preceding breakouts (BOS), and defines the exact price range of the Order Block.
-
-### 4. `strategy.py` (The Trigger & Sizing Logic)
-Dictates exact entry timings and sizing metrics.
-- **`generate_signals`**: Scans for specific candlestick patterns (Bullish Engulfing / Pin Bars) strictly inside Order Block zones.
-- **`calculate_position_size`**: Determines exact share quantities based on the 1.5% portfolio risk rule, adjusting for the VIX multiplier.
-- **`Trade` Class**: Tracks individual open positions, target levels, and time-stops, returning realized PnL upon exit.
-
-### 5. `backtest_engine.py` (The Simulator)
-The core simulation loop. Rather than using vectorization (which is prone to lookahead bias and struggles with portfolio constraints), it uses an **event-driven loop**. It steps through time day-by-day, updates portfolio equity based on open positions, triggers exits, and buys new generated signals based strictly on the available cash and margin of that specific day.
-
-### 6. `report.py` (The Analytics Engine)
-Crunches the final numbers. It reconstructs the equity curve, calculates standard Wall Street KPIs (CAGR, Sharpe, Sortino, Max Drawdown), and uses `matplotlib`/`seaborn` to render the visual plots and the raw `trades.csv` ledger.
+### Visualizations
+The engine will automatically generate the following visualization charts in the `backtest_results/` directory:
+1. `historical_performance.png`: The historical equity curve and underwater drawdown chart.
+2. `monte_carlo_historical.png`: A spaghetti plot of 1,000 historical alternate realities.
+3. `monte_carlo_projection.png`: A forward-looking fan chart projecting the strategy out to the year 2030.

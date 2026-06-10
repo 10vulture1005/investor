@@ -180,6 +180,7 @@ class BacktestEngine:
                             size=shares, 
                             vix_val=vix_row['Close'], 
                             sector=SECTOR_MAP.get(stock, 'Other'),
+                            atr_at_entry=atr,
                             macro_crash_at_entry=macro_crash
                         )
                         self.open_trades.append(new_trade)
