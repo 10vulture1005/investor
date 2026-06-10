@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -12,9 +13,9 @@ logger = logging.getLogger(__name__)
 # Constants
 NIFTY_50_TICKERS = [
     'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'ICICIBANK.NS', 'INFY.NS',
-    'ITC.NS', 'SBIN.NS', 'L&T.NS', 'BHARTIARTL.NS', 'BAJFINANCE.NS',
+    'ITC.NS', 'SBIN.NS', 'LT.NS', 'BHARTIARTL.NS', 'BAJFINANCE.NS',
     'HINDUNILVR.NS', 'ASIANPAINT.NS', 'AXISBANK.NS', 'KOTAKBANK.NS', 'TITAN.NS',
-    'MARUTI.NS', 'SUNPHARMA.NS', 'ULTRACEMCO.NS', 'TATAMOTORS.NS', 'HCLTECH.NS',
+    'MARUTI.NS', 'SUNPHARMA.NS', 'ULTRACEMCO.NS', 'TRENT.NS', 'HCLTECH.NS',
     'TATASTEEL.NS', 'NTPC.NS', 'WIPRO.NS', 'BAJAJFINSV.NS', 'M&M.NS',
     'POWERGRID.NS', 'NESTLEIND.NS', 'ADANIENT.NS', 'GRASIM.NS', 'TECHM.NS',
     'INDUSINDBK.NS', 'HINDALCO.NS', 'ONGC.NS', 'JSWSTEEL.NS', 'BRITANNIA.NS',

@@ -193,8 +193,9 @@ def generate_report(metrics, closed_trades, output_dir='backtest_results'):
     # V4. Win/Loss Distribution
     if not df_trades.empty:
         plt.figure(figsize=(8, 5))
-        sns.histplot(df_trades['pnl_inr'], bins=20, kde=True, 
-                     hue=(df_trades['pnl_inr'] > 0), palette={True:'green', False:'red'},
+        df_trades['is_win'] = df_trades['pnl_inr'] > 0
+        sns.histplot(data=df_trades, x='pnl_inr', bins=20, kde=True, 
+                     hue='is_win', palette={True:'green', False:'red'},
                      legend=False)
         plt.title('Win/Loss Distribution (INR)')
         plt.xlabel('PnL (INR)')
@@ -214,4 +215,99 @@ def generate_report(metrics, closed_trades, output_dir='backtest_results'):
         plt.savefig(out_path / 'trade_scatter.png')
         plt.close()
         
+    if 'daily_return' in df_eq:
+        daily_returns = df_eq['daily_return'].dropna().values
+        run_monte_carlo_simulation(daily_returns, output_dir=output_dir)
+        
     logger.info(f"Reports saved to {out_path}/")
+
+def run_monte_carlo_simulation(daily_returns, initial_capital=1000000.0, num_simulations=1000, output_dir='backtest_results'):
+    """
+    Runs a Monte Carlo simulation by randomly resampling daily portfolio returns.
+    """
+    out_path = Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+    
+    if len(daily_returns) == 0:
+        logger.warning("No daily returns to simulate.")
+        return
+        
+    days = len(daily_returns)
+    simulated_equities = np.zeros((num_simulations, days))
+    max_drawdowns = np.zeros(num_simulations)
+    
+    logger.info(f"Running Monte Carlo Simulation ({num_simulations} iterations)...")
+    
+    for i in range(num_simulations):
+        # Sample with replacement
+        random_returns = np.random.choice(daily_returns, size=days, replace=True)
+        
+        # Calculate equity curve for this simulation
+        eq_curve = initial_capital * np.cumprod(1 + random_returns)
+        simulated_equities[i, :] = eq_curve
+        
+        # Calculate max drawdown for this simulation
+        peak = np.maximum.accumulate(eq_curve)
+        drawdown = (eq_curve - peak) / peak
+        max_drawdowns[i] = np.min(drawdown)
+        
+    # Calculate percentiles
+    percentile_5 = np.percentile(simulated_equities, 5, axis=0)
+    percentile_50 = np.percentile(simulated_equities, 50, axis=0)
+    percentile_95 = np.percentile(simulated_equities, 95, axis=0)
+    
+    # Plot Monte Carlo Equity Curves
+    plt.figure(figsize=(12, 6))
+    
+    # Plot a few random paths lightly in the background
+    for i in range(min(50, num_simulations)):
+        plt.plot(simulated_equities[i, :], color='grey', alpha=0.1)
+        
+    plt.plot(percentile_50, color='blue', label='Median (50th Percentile)', linewidth=2)
+    plt.plot(percentile_95, color='green', label='Best Case (95th Percentile)', linewidth=2, linestyle='--')
+    plt.plot(percentile_5, color='red', label='Worst Case (5th Percentile)', linewidth=2, linestyle='--')
+    
+    plt.title(f'Monte Carlo Simulation - Equity Curves ({num_simulations} Runs)')
+    plt.xlabel('Days')
+    plt.ylabel('Equity (INR)')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(out_path / 'monte_carlo_equity.png')
+    plt.close()
+    
+    # Plot Drawdown Distribution
+    plt.figure(figsize=(8, 5))
+    sns.histplot(max_drawdowns * 100, bins=30, kde=True, color='red')
+    plt.title('Monte Carlo Simulation - Max Drawdown Distribution')
+    plt.xlabel('Max Drawdown (%)')
+    plt.ylabel('Frequency')
+    
+    # Add vertical lines for percentiles
+    plt.axvline(np.percentile(max_drawdowns * 100, 50), color='blue', linestyle='dashed', linewidth=2, label='Median DD')
+    plt.axvline(np.percentile(max_drawdowns * 100, 5), color='red', linestyle='dashed', linewidth=2, label='95% Worst DD')
+    plt.legend()
+    
+    plt.tight_layout()
+    plt.savefig(out_path / 'monte_carlo_drawdown.png')
+    plt.close()
+    
+    # Plot Expected Return Distribution
+    final_returns_pct = ((simulated_equities[:, -1] / initial_capital) - 1.0) * 100
+    
+    plt.figure(figsize=(8, 5))
+    sns.histplot(final_returns_pct, bins=30, kde=True, color='green')
+    plt.title('Monte Carlo Simulation - Expected Return Distribution')
+    plt.xlabel('Total Return (%)')
+    plt.ylabel('Frequency')
+    
+    # Add vertical lines for percentiles
+    plt.axvline(np.percentile(final_returns_pct, 50), color='blue', linestyle='dashed', linewidth=2, label='Median Return')
+    plt.axvline(np.percentile(final_returns_pct, 5), color='red', linestyle='dashed', linewidth=2, label='95% Worst Return')
+    plt.axvline(np.percentile(final_returns_pct, 95), color='green', linestyle='dashed', linewidth=2, label='5% Best Return')
+    plt.legend()
+    
+    plt.tight_layout()
+    plt.savefig(out_path / 'monte_carlo_returns.png')
+    plt.close()
+    
+    logger.info(f"Monte Carlo simulation complete. Median Final Equity: ₹{percentile_50[-1]:,.2f}, Median DD: {np.percentile(max_drawdowns * 100, 50):.2f}%")

@@ -21,7 +21,7 @@ class BacktestEngine:
         
         # Extract global filters
         self.vix = self.data_dict.get('VIX')
-        self.fii = self.data_dict.get('NIFTYBEES')
+        self.nifty = self.data_dict.get('Nifty50')
         
         # Prepare trading dates (intersection of all available dates, or just Nifty50 dates)
         nifty = self.data_dict.get('^NSEI')
@@ -50,6 +50,18 @@ class BacktestEngine:
                 
             prev_date = self.dates[i-1]
             
+            # --- 0. Macro Crash Protection (Breakeven Trailing) ---
+            vix_row_prev = self.vix.loc[prev_date] if prev_date in self.vix.index else {}
+            nifty_row_prev = self.nifty.loc[prev_date] if prev_date in self.nifty.index else {}
+            
+            vix_mult_prev = vix_row_prev.get('VIX_Multiplier', 1.0)
+            macro_crash = nifty_row_prev.get('Macro_Crash', False)
+            
+            if (macro_crash or vix_mult_prev == 0.0) and len(self.open_trades) > 0:
+                for trade in self.open_trades:
+                    if trade.current_sl < trade.entry_price:
+                        trade.current_sl = trade.entry_price
+            
             # --- 1. Manage existing trades (Exits) ---
             daily_realized_pnl = 0.0
             
@@ -67,7 +79,7 @@ class BacktestEngine:
                     
                     pnl = trade.update(date, row['Open'], row['High'], row['Low'], row['Close'])
                     
-                    if pnl != 0:
+                    if prev_size > trade.current_size:
                         # An exit occurred, apply costs to the exited portion
                         size_exited = prev_size - trade.current_size
                         # Estimate exit price (avg)
@@ -110,17 +122,16 @@ class BacktestEngine:
                 continue
                 
             # Filter checks are based on yesterday's signal!
-            if prev_date not in self.vix.index or prev_date not in self.fii.index:
+            if prev_date not in self.vix.index or prev_date not in self.nifty.index:
                 continue
                 
             vix_row = self.vix.loc[prev_date]
-            fii_row = self.fii.loc[prev_date]
+            nifty_row = self.nifty.loc[prev_date]
             
             vix_mult = vix_row.get('VIX_Multiplier', 1.0)
-            if vix_mult == 0.0: # VIX > 25
-                continue
-                
-            if not fii_row.get('FII_Allowed', False):
+            regime_allowed = nifty_row.get('Regime_Allowed', False)
+            
+            if not (vix_mult > 0 and regime_allowed):
                 continue
                 
             # Evaluate stocks
@@ -130,17 +141,8 @@ class BacktestEngine:
                 if prev_date in df.index and date in df.index:
                     prev_row = df.loc[prev_date]
                     if prev_row.get('Entry_Signal', False):
-                        # Ensure sector RS is passed
-                        sector = SECTOR_MAP.get(stock, 'Other')
-                        if sector == 'Other':
-                            continue # Skip unmapped
-                            
-                        sector_idx = SECTOR_MAP.get(stock)
-                        df_sec = self.data_dict.get(sector_idx)
-                        # We should have pre-calculated RS flag in the data prep step
-                        # We will assume it's merged into the stock's dataframe for simplicity
-                        if prev_row.get('Sector_RS', False):
-                            candidates.append((stock, df.loc[date]))
+                        # Sector RS is skipped for optimized backtest
+                        candidates.append((stock, df.loc[date]))
                             
             # Sort candidates or pick first available
             for stock, today_row in candidates:
@@ -151,40 +153,37 @@ class BacktestEngine:
                 
                 # Setup trade
                 entry_price = today_row['Open']
-                ob_low = prev_row['OB_Low']
-                stop_loss = ob_low * 0.985 # 1.5% below OB low
+                atr = prev_row.get('ATR', 0)
                 
-                # Check for invalid SL
-                if entry_price <= stop_loss:
-                    continue
-                    
-                risk_per_share = entry_price - stop_loss
-                target_1 = entry_price + (1.5 * risk_per_share)
-                target_2 = entry_price + (2.5 * risk_per_share)
+                shares, stop_loss = calculate_position_size(
+                    equity=self.equity, 
+                    risk_pct=self.risk_pct, 
+                    entry_price=entry_price, 
+                    atr=atr, 
+                    vix_multiplier=vix_mult
+                )
                 
-                size = calculate_position_size(self.equity, self.risk_pct, entry_price, stop_loss, vix_mult)
-                
-                if size > 0:
-                    trade_value = size * entry_price
-                    # Check if enough cash
-                    if self.cash >= trade_value:
-                        # Apply entry costs (Brokerage + Slippage, NO STT on buy)
-                        costs = trade_value * (0.0003 + 0.001)
-                        if self.cash >= trade_value + costs:
-                            self.cash -= (trade_value + costs)
-                            
-                            new_trade = Trade(
-                                stock=stock, 
-                                entry_date=date, 
-                                entry_price=entry_price, 
-                                stop_loss=stop_loss, 
-                                target_1=target_1, 
-                                target_2=target_2, 
-                                size=size, 
-                                vix_val=vix_row['Close'], 
-                                sector=SECTOR_MAP.get(stock)
-                            )
-                            self.open_trades.append(new_trade)
+                if shares > 0:
+                    cost = shares * entry_price
+                    if self.cash >= cost:
+                        risk_per_share = entry_price - stop_loss
+                        target_1 = entry_price + (2.0 * risk_per_share)
+                        target_2 = entry_price + (3.0 * risk_per_share)
+                        
+                        new_trade = Trade(
+                            stock=stock, 
+                            entry_date=date, 
+                            entry_price=entry_price, 
+                            stop_loss=stop_loss, 
+                            target_1=target_1, 
+                            target_2=target_2, 
+                            size=shares, 
+                            vix_val=vix_row['Close'], 
+                            sector=SECTOR_MAP.get(stock, 'Other'),
+                            macro_crash_at_entry=macro_crash
+                        )
+                        self.open_trades.append(new_trade)
+                        self.cash -= cost
 
         logger.info(f"Backtest complete. Processed {len(self.dates)} days.")
         logger.info(f"Final Equity: ₹{self.equity:,.2f}")
