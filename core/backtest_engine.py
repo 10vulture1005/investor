@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 import logging
-from strategy import Trade, calculate_position_size
-from data_fetcher import SECTOR_MAP
+from core.strategy import Trade, calculate_position_size
+from core.data_fetcher import SECTOR_MAP
 
 logger = logging.getLogger(__name__)
 

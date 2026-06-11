@@ -3,10 +3,12 @@ import numpy as np
 from typing import List, Dict
 import logging
 import math
+import os
+import joblib
 
-from signals import generate_signals, rank_candidates
-from risk import calculate_position_size
-from data_fetcher import SECTOR_MAP
+from core.signals import generate_signals, rank_candidates
+from core.risk import calculate_position_size
+from core.data_fetcher import SECTOR_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,11 @@ class BacktestEngine:
         self.data_dict = data_dict
         self.nifty = data_dict.get('Nifty50')
         self.vix = data_dict.get('VIX')
+        
+        self.ml_model = None
+        if os.path.exists('models/xgb_filter.pkl'):
+            self.ml_model = joblib.load('models/xgb_filter.pkl')
+            logger.info("Loaded XGBoost ML Filter model.")
         
         self.equity = start_capital
         self.cash = start_capital
@@ -207,13 +214,45 @@ class BacktestEngine:
                     stock_data = next((item for item in candidates_data if item["stock"] == stock), None)
                     if stock_data and stock_data['Entry_Qualifies']:
                         
-                        # Correlation Control: limit to max 2 from same sector
-                        sector = SECTOR_MAP.get(stock, 'Other')
-                        sector_count = sum(1 for t in self.open_trades if t.sector == sector)
-                        sector_count += sum(1 for s in eligible_to_buy if SECTOR_MAP.get(s, 'Other') == sector)
-                        
-                        if sector_count < 2:
-                            eligible_to_buy.append(stock)
+                        # --- ML FILTER ---
+                        prob_win = 1.0
+                        if self.ml_model is not None:
+                            df = self.data_dict[stock]
+                            if prev_date in df.index:
+                                row = df.loc[prev_date]
+                                
+                                nifty_row = self.nifty.loc[prev_date] if prev_date in self.nifty.index else None
+                                vix_row = self.vix.loc[prev_date] if prev_date in self.vix.index else None
+                                
+                                nifty_sma100 = nifty_row['SMA_100'] if nifty_row is not None else np.nan
+                                nifty_close = nifty_row['Close'] if nifty_row is not None else np.nan
+                                vix_close = vix_row['Close'] if vix_row is not None else np.nan
+                                
+                                dist_sma50 = (row['Close'] - row['SMA_50']) / row['SMA_50']
+                                smooth_mom = row['ROC_90'] / row['ATR_20'] if row['ATR_20'] > 0 else 0
+                                dist_kc_lower = (row['Close'] - row['KC_Lower']) / row['KC_Lower']
+                                
+                                features = pd.DataFrame([{
+                                    'RSI_3': row['RSI_3'],
+                                    'ROC_90': row['ROC_90'],
+                                    'ATR_pct': row['ATR_14'] / row['Close'],
+                                    'dist_sma50': dist_sma50,
+                                    'smooth_mom': smooth_mom,
+                                    'dist_kc_lower': dist_kc_lower,
+                                    'vix': vix_close,
+                                    'nifty_trend': 1 if nifty_close > nifty_sma100 else 0
+                                }])
+                                
+                                prob_win = self.ml_model.predict_proba(features)[0][1]
+                                
+                        if prob_win >= 0.50:
+                            # Correlation Control: limit to max 2 from same sector
+                            sector = SECTOR_MAP.get(stock, 'Other')
+                            sector_count = sum(1 for t in self.open_trades if t.sector == sector)
+                            sector_count += sum(1 for s in eligible_to_buy if SECTOR_MAP.get(s, 'Other') == sector)
+                            
+                            if sector_count < 2:
+                                eligible_to_buy.append(stock)
                             
                 slots_available = 1 - len(self.open_trades)
                 stocks_to_buy = eligible_to_buy[:slots_available]

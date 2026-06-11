@@ -9,3 +9,6 @@ fastparquet
 python-dotenv
 dhanhq
 rich
+xgboost
+scikit-learn
+joblib

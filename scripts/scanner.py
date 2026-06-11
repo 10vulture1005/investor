@@ -7,10 +7,15 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
-from data_fetcher import DataFetcher, NIFTY_50_TICKERS, SECTOR_INDICES, SECTOR_MAP
-from filters import calculate_vix_filter, calculate_market_regime_filter, calculate_technical_indicators
-from strategy import generate_signals, calculate_position_size
-from broker import DhanBroker
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from core.data_fetcher import DataFetcher, NIFTY_50_TICKERS, SECTOR_INDICES, SECTOR_MAP
+from core.filters import calculate_vix_filter, calculate_market_regime_filter
+from core.indicators import calculate_technical_indicators
+from core.signals import generate_signals
+from core.risk import calculate_position_size
+from core.broker import DhanBroker
 
 # Setup logging to be less noisy for the scanner
 logging.basicConfig(level=logging.WARNING, format='%(message)s')

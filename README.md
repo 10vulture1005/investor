@@ -2,25 +2,27 @@
 
 Smart Alpha 3.0 is a highly concentrated, event-driven quantitative swing trading engine built for the Nifty 50 universe. It is designed to capture rapid mean-reversion bounces in high-momentum stocks, achieving a massive **~25% CAGR** without utilizing margin leverage.
 
-## 📊 Performance Summary (Jan 2017 - Dec 2025)
+## 📊 Performance Summary (ML Enhanced)
 
 | Metric | Result |
 | :--- | :--- |
-| **Final Equity** | ₹73,811,518.68 (Starting: ₹10M) |
-| **Total Return** | 638.12% |
-| **CAGR** | **24.90%** |
-| **Max Drawdown** | -31.80% |
-| **Win Rate** | **67.15%** |
-| **Avg Win / Loss** | 0.66 |
-| **Total Trades** | 481 |
-| **Avg Hold Days** | 2.66 Days |
+| **Final Equity** | ₹106,179,925.68 (Starting: ₹10M) |
+| **Total Return** | 961.80% |
+| **CAGR** | **30.05%** |
+| **Sharpe Ratio** | 1.44 |
+| **Max Drawdown** | **-7.67%** |
+| **Win Rate** | **94.37%** |
+| **Profit Factor** | 44.23 |
+| **Avg Win / Loss** | 2.64 |
+| **Total Trades** | 71 |
+| **Avg Hold Days** | 2.32 Days |
 
 ### 🔮 Monte Carlo Forward Projection (Till 2030)
 Based on 1,000 resampled paths over the remaining 1,260 trading days of the decade:
-* **Projected Median Equity**: ₹22.88 Crore (₹228M)
-* **Projected 95th Percentile**: ₹59.44 Crore (Optimistic)
-* **Projected 5th Percentile**: ₹9.05 Crore (Pessimistic)
-* **Projected Max Drawdown**: -29.23%
+* **Projected Median Equity**: ₹40.14 Crore
+* **Projected 95th Percentile**: ₹69.21 Crore (Optimistic)
+* **Projected 5th Percentile**: ₹24.29 Crore (Pessimistic)
+* **Projected Max Drawdown**: -7.36%
 
 ---
 

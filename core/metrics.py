@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from engine import Trade
+from core.engine import Trade
 
 def calculate_metrics(equity_curve: list, closed_trades: list[Trade], risk_free_rate: float = 0.06):
     df_eq = pd.DataFrame(equity_curve)

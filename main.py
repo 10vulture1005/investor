@@ -3,10 +3,10 @@ import os
 import pandas as pd
 from dotenv import load_dotenv
 
-from data_fetcher import DataFetcher
-from indicators import calculate_technical_indicators
-from engine import BacktestEngine
-from metrics import calculate_metrics, monthly_returns_table, run_monte_carlo, run_monte_carlo_projection, plot_historical_performance
+from core.data_fetcher import DataFetcher
+from core.indicators import calculate_technical_indicators
+from core.engine import BacktestEngine
+from core.metrics import calculate_metrics, monthly_returns_table, run_monte_carlo, run_monte_carlo_projection, plot_historical_performance
 
 # Configure logging
 logging.basicConfig(
@@ -43,6 +43,9 @@ def main():
             
     # 3. Run Engine
     logger.info("Starting engine loop...")
+    if os.path.exists('models/xgb_filter.pkl'):
+        logger.info("⚡ XGBoost ML Filter is ACTIVE. Low probability trades will be rejected.")
+        
     engine = BacktestEngine(data_dict, start_capital=10000000.0)
     equity_curve, closed_trades = engine.run()
     
