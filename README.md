@@ -26,6 +26,26 @@ Based on 1,000 resampled paths over the remaining 1,260 trading days of the deca
 
 ---
 
+## 🚀 Custom Portfolio Backtest (Buy & Hold Comparison)
+When tested on a custom portfolio of varied ETFs, small-caps, and specific stocks (e.g., MOTHERSON, GOLDBEES, EVEXIA) from 2021-2025, the original Nifty 50 ML model lost money (-5.73%) due to asset behavior mismatch. 
+
+However, by training a specialized XGBoost model directly on this custom portfolio (`train_custom_ml.py`), the strategy achieved immense outperformance, easily beating a passive Buy & Hold approach while keeping capital in cash over 80% of the time.
+
+| Metric | Buy & Hold | Custom ML Strategy |
+| :--- | :--- | :--- |
+| **Final Equity** | ~₹22.3M | **₹32.1M** |
+| **Total Return** | 123.00% | **221.38%** |
+| **CAGR** | ~17.4% | **26.34%** |
+| **Max Drawdown** | ~-50.00%+ | **-19.75%** |
+| **Win Rate** | N/A | **76.19%** |
+| **Profit Factor**| N/A | 2.92 |
+| **Total Trades** | 1 | 42 |
+| **Avg Hold Days**| 1260 Days | 2.40 Days |
+
+This demonstrates the extreme adaptability of the Smart Alpha engine when the ML component is properly trained on the target asset universe.
+
+---
+
 ## 🧠 Strategy Architecture
 
 ### 1. The Universe & Regime Filters

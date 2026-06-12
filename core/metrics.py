@@ -97,7 +97,7 @@ def monthly_returns_table(df_eq: pd.DataFrame) -> pd.DataFrame:
     
     return pivot.round(2)
 
-def plot_historical_performance(df_eq: pd.DataFrame):
+def plot_historical_performance(df_eq: pd.DataFrame, output_dir: str = 'backtest_results'):
     """Generates and saves the historical equity curve and drawdown chart."""
     plt.figure(figsize=(12, 8))
     
@@ -117,11 +117,11 @@ def plot_historical_performance(df_eq: pd.DataFrame):
     plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    os.makedirs('backtest_results', exist_ok=True)
-    plt.savefig('backtest_results/historical_performance.png', dpi=300)
+    os.makedirs(output_dir, exist_ok=True)
+    plt.savefig(os.path.join(output_dir, 'historical_performance.png'), dpi=300)
     plt.close()
 
-def run_monte_carlo(df_eq: pd.DataFrame, iterations: int = 1000):
+def run_monte_carlo(df_eq: pd.DataFrame, iterations: int = 1000, output_dir: str = 'backtest_results'):
     """
     Runs a Monte Carlo simulation by resampling daily returns with replacement.
     Returns median final equity and median max drawdown.
@@ -162,12 +162,13 @@ def run_monte_carlo(df_eq: pd.DataFrame, iterations: int = 1000):
     plt.grid(True, alpha=0.3)
     plt.legend()
     plt.tight_layout()
-    plt.savefig('backtest_results/monte_carlo_historical.png', dpi=300)
+    os.makedirs(output_dir, exist_ok=True)
+    plt.savefig(os.path.join(output_dir, 'monte_carlo_historical.png'), dpi=300)
     plt.close()
         
     return np.median(final_equities), np.median(max_drawdowns)
 
-def run_monte_carlo_projection(df_eq: pd.DataFrame, target_year: int = 2030, iterations: int = 1000):
+def run_monte_carlo_projection(df_eq: pd.DataFrame, target_year: int = 2030, iterations: int = 1000, output_dir: str = 'backtest_results'):
     """
     Projects the equity curve forward to a target year using Monte Carlo resampling.
     Returns the median, 5th percentile, and 95th percentile of the projected final equity.
@@ -216,7 +217,8 @@ def run_monte_carlo_projection(df_eq: pd.DataFrame, target_year: int = 2030, ite
     plt.grid(True, alpha=0.3)
     plt.legend()
     plt.tight_layout()
-    plt.savefig('backtest_results/monte_carlo_projection.png', dpi=300)
+    os.makedirs(output_dir, exist_ok=True)
+    plt.savefig(os.path.join(output_dir, 'monte_carlo_projection.png'), dpi=300)
     plt.close()
         
     median_eq = np.median(final_equities)
